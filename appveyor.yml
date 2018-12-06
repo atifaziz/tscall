@@ -1,0 +1,20 @@
+version: '{build}'
+image: Visual Studio 2017
+skip_commits:
+  files:
+    - '*.md'
+    - '*.txt'
+skip_tags: true
+build_script:
+  - .\build.cmd
+after_build:
+  - 7z a -tzip tscall.zip LICENSE tscall.exe
+artifacts:
+  - path: '*.zip'
+notifications:
+- provider: Email
+  to:
+  - raboof-ci@googlegroups.com
+  on_build_success: true
+  on_build_failure: true
+  on_build_status_changed: false
