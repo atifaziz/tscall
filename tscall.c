@@ -151,10 +151,15 @@ int copy_file(const char *src_path, const char *dest_path)
 
 bail:
 
+    int old_errno = errno;
+
     if (src_file != -1)
         close(src_file);
     if (dest_file != -1)
         close(dest_file);
+
+    if (!success)
+        _set_errno(old_errno);
 
     return success;
 }
