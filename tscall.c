@@ -49,7 +49,7 @@
 #define printf_app_error(msg, ...) \
     fprintf(stderr, msg "\nat: %s:%d\n", __VA_ARGS__, __FILE__, __LINE__)
 
-int copy_file(const char *source_path, const char *out);
+int copy_file(const char *source_path, const char *out, int *existed);
 
 int main(int argc, char **argv)
 {
@@ -90,6 +90,8 @@ int main(int argc, char **argv)
             return 1;
     }
 
+    retry:
+
     int missing = 0;
     struct stat tsfinfo;
     if (stat(tsname, &tsfinfo) && !(missing = errno == ENOENT)) {
@@ -102,7 +104,12 @@ int main(int argc, char **argv)
             printf_app_error("Cannot refresh \"%s\" as it is not a file.", tsname);
             return 1;
         }
-        if (!copy_file(argv[1], tsname)) {
+        int existed = 0;
+        if (!copy_file(argv[1], tsname, &existed)) {
+            if (existed) {
+                Sleep(200);
+                goto retry;
+            }
             print_op_error("copy_file");
             return 1;
         }
@@ -124,8 +131,10 @@ int main(int argc, char **argv)
     return result;
 }
 
-int copy_file(const char *src_path, const char *dest_path)
+int copy_file(const char *src_path, const char *dest_path, int *existed)
 {
+    *existed = 0;
+
     int src_file = open(src_path,  O_RDONLY);
     if (-1 == src_file)
         return 0;
@@ -136,9 +145,11 @@ int copy_file(const char *src_path, const char *dest_path)
     if (fstat(src_file, &src_stat))
         goto bail;
 
-    int dest_file = open(dest_path, O_WRONLY | O_CREAT | O_TRUNC, src_stat.st_mode & 0777);
-    if (-1 == dest_file)
+    int dest_file = open(dest_path, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC, src_stat.st_mode & 0777);
+    if (-1 == dest_file) {
+        *existed = EEXIST == errno;
         goto bail;
+    }
 
     int len;
     char *buffer[4096];
